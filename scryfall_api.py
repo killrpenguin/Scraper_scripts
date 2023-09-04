@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+from selenium.webdriver import EdgeOptions
 
 link = "https://api.scryfall.com/cards/named?fuzzy=" + "Valki, God of Lies // Tibalt, Cosmic Impostor"
 page = requests.get(link)
