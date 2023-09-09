@@ -11,14 +11,14 @@ from selenium.webdriver import EdgeOptions
 zip_input_xpath = "/html/body/div[1]/div[2]/div[2]/div[1]/div/div[2]/div[1]/div[1]/form/div[3]/div/div/div/div[2]/input"
 keyword_input_xpath = '//*[@id="KeywordFacet-input"]'
 search_button_xpath = '//*[@id="findjob"]/div[6]/div/button'
-web_link = "https://jobs.ksl.com/"
+web_link = "https://jobs.ksl.com/search/keywords/"
 proxy = 'http://24.158.29.166:80'
-link = "https://www.zipcode.com.ng/2022/12/salt-lake-county-zip-codes-ut.html"
-zips_xpath = '/html/body/div[1]/div[1]/div[2]/div[1]/div/div/div[2]/div/article/div[3]/div[2]/div/div[1]/div[2]/table/tbody'
+search_terms = ['excel', 'python', 'data entry']
 class Jobs():
     def __init__(self):
         self.driver = self.web_driver(proxy)
         self.zip_codes = self.get_Zips()
+        self.search_terms = search_terms
 
     def web_driver(self, proxy):
         edge_options = EdgeOptions()
@@ -30,22 +30,21 @@ class Jobs():
         return driver
 
     def get_Zips(self):
-        self.driver.get(link)
-        self.driver.implicitly_wait(3)
-        zips = self.driver.find_element(By.XPATH, zips_xpath).text.split('\n')
-        ret_zips = []
-        for zip in zips:
-            zip_code = re.search("(?![a-zA-Z])\d....(?![a-zA-Z])", zip).group()
-            ret_zips.append(zip_code)
-        return ret_zips
+        file = open("zipcodes_backup", "r").read().strip().split('\n')
+        return file
 
-    def save_to_file(self):
-        f = open('zipcodes', "x")
-        for zip in self.zip_codes:
-            f.write(f"{zip} \n")
-        f.close()
+    def search_ksl(self):
+        wait = WebDriverWait(self.driver, 15)
+        listings = []
+        for term in self.search_terms:
+            self.driver.get(web_link + term)
+            listing = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME, 'listing')))
+            listings = [item.text for item in listing]
+            listing.append(term)
+        return listings
 
 
-get_zips = Jobs()
-get_zips.save_to_file()
-get_zips.driver.close()
+jobs_project = Jobs()
+listing = jobs_project.search_ksl()
+for i in listing:
+    print(i)
