@@ -1,5 +1,5 @@
 class Deck():
-    def __init__(self, alphabet=None):
+    def __init__(self):
         self.card_obj_list = []
         self.target_list = ['Mana Crypt', 'Grim Monolith', 'Sol Ring'] # return value of moxfield_get_decklist
 
@@ -13,7 +13,6 @@ class Deck():
 class Card():
     def __init__(self, card_name):
         self.card_name = card_name
-
 
 
 def tri_recursion2(target_list):
