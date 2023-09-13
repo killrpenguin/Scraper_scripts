@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List
 import time
 import json
+import asyncio
+import aiohttp
 import requests
 from bs4 import BeautifulSoup
 
@@ -9,22 +11,22 @@ from bs4 import BeautifulSoup
 class Deck():
     def __init__(self):
         self.card_obj_list = []
-        self.target_list = ['Mana Crypt', 'Grim Monolith', 'Sol Ring', 'catch // release']
+        self.deck_list = ['Mana Crypt', 'Grim Monolith', 'Sol Ring', 'catch // release']
 
-    def make_cards_obj(self, lst=None) -> list:
-        if (len(self.target_list) > 0) and (type(self.target_list[-1]) is str):
-            self.card_obj_list.append(Card(self.target_list[-1]))
-            self.target_list.pop()
-            self.make_cards_obj(self.target_list)
-        return self.target_list
+    def make_cards_obj(self, *args) -> list:
+        if (len(self.deck_list) > 0) and (type(self.deck_list[-1]) is str):
+            self.card_obj_list.append(Card(self.deck_list[-1]))
+            self.deck_list.pop()
+            self.make_cards_obj(self.deck_list)
+        return self.deck_list
 
 class Card(Deck):
     def __init__(self, card_name):
         super().__init__()
         self.card_name = card_name
-        self.card_dict = self.get_json_dict(card_name)
+        self.card_dict = {}
         self.card_layout = self.card_dict['layout']
-        self.faces = self.make_faces(self.card_dict)
+        self.faces = []
         self.legal_status = self.card_dict['legalities']['commander']
 
     def display_card(self):
@@ -33,13 +35,40 @@ class Card(Deck):
         for face in self.faces:
             print(f"\ncmc: {face.cmc}, mc: {face.mana_cost}, type: {face.card_type}, colors: {face.color_ident}")
 
-    def get_json_dict(self, card) -> Dict:
-        link = "https://api.scryfall.com/cards/named?fuzzy=" + card
-        page = requests.get(link)
-        soup = BeautifulSoup(page.text, "html.parser")
-        card_dict = json.loads(soup.text)
-        time.sleep(.25)
-        return card_dict
+
+    VALID_STATUSES = [200, 301, 302, 307, 404]
+    api_link = "https://api.scryfall.com/cards/named?fuzzy="
+    deck_list = ['Mana Crypt', "Mox Amber", "Mox Opal", "Sol Ring"]
+
+    async def req_json(self, session, api_link):
+        VALID_STATUSES = [200, 301, 302, 307, 404]
+        try:
+            async with session.get(api_link, timeout=500) as resp:
+                await resp.json()
+                # asyncio.sleep is used to restrict requests to < 10 per sec, per skcryfall api guidelines.
+                await asyncio.sleep(.12)
+                if resp.status in VALID_STATUSES:
+                    async with session.get(resp.url, timeout=500) as json_resp:
+                        self.card_dict =json.loads(await json_resp.read())
+                        self.make_faces(self.card_dict)
+        except Exception as e:
+            print(f"Exception: {e}")
+        return await self.card_dict
+
+
+    async def main(self):
+        api_link = "https://api.scryfall.com/cards/named?fuzzy="
+        tcp_connection = aiohttp.TCPConnector(limit=250)
+        header = {"Authorization": "Basic bG9naW46cGFzcw=="}
+        async with aiohttp.ClientSession(connector=tcp_connection, headers=header, trust_env=True) as session:
+            try:
+                tasks = [asyncio.create_task(self.req_json(session, api_link=api_link + card)) for card in self.deck_list]
+                for task in tasks:
+                    await task
+            except Exception as e:
+                print(f"Exception: {e}")
+            await asyncio.sleep(0)
+
 
     def make_faces(self, card) -> list:
         faces = []
@@ -69,6 +98,6 @@ class Face(Deck):
 
 
 practice = Deck()
-practice.make_cards_obj(practice.target_list)
+practice.make_cards_obj(practice.deck_list)
 for i in practice.card_obj_list:
     print(i.faces)
